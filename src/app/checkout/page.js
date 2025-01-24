@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { PayPalButtons } from "@paypal/react-paypal-js";
 import Image from 'next/image';
 
 export default function Checkout() {
@@ -44,6 +45,66 @@ export default function Checkout() {
     localStorage.removeItem('cart');
     router.push('/');
   };
+
+  const handlePayPalApprove = async (data, actions) => {
+    try {
+      const order = await actions.order.capture();
+      console.log('Payment successful:', order);
+      
+      // Here you would typically:
+      // 1. Send order details to your backend
+      // 2. Create order in your database
+      // 3. Clear cart
+      // 4. Redirect to success page
+      
+      localStorage.removeItem('cart');
+      router.push('/thank-you');
+    } catch (error) {
+      console.error('Payment failed:', error);
+      alert('Payment failed. Please try again.');
+    }
+  };
+
+  const renderPaymentButton = () => (
+    <div className="space-y-4">
+      <PayPalButtons
+        createOrder={(data, actions) => {
+          return actions.order.create({
+            purchase_units: [
+              {
+                amount: {
+                  value: (cartTotal + 10).toFixed(2),
+                  breakdown: {
+                    item_total: {
+                      value: cartTotal.toFixed(2),
+                      currency_code: "USD"
+                    },
+                    shipping: {
+                      value: "10.00",
+                      currency_code: "USD"
+                    }
+                  }
+                },
+                items: cart.map(item => ({
+                  name: item.name,
+                  quantity: item.quantity,
+                  unit_amount: {
+                    value: item.price.toFixed(2),
+                    currency_code: "USD"
+                  }
+                }))
+              },
+            ],
+          });
+        }}
+        onApprove={handlePayPalApprove}
+        style={{ layout: "vertical" }}
+      />
+      <p className="text-sm text-gray-500 text-center">
+        Secure payment processed by PayPal
+      </p>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -273,18 +334,12 @@ export default function Checkout() {
                     <span className="text-gray-600">Shipping</span>
                     <span className="text-gray-900">$10.00</span>
                   </div>
-                  <div className="flex justify-between text-lg font-medium">
+                  <div className="flex justify-between text-lg font-medium mb-6">
                     <span>Total</span>
                     <span>${(cartTotal + 10).toFixed(2)}</span>
                   </div>
-
-                  <button
-                    type="submit"
-                    onClick={handleSubmit}
-                    className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-300 font-medium"
-                  >
-                    Place Order
-                  </button>
+                  
+                  {renderPaymentButton()}
                 </div>
               </div>
             </div>
