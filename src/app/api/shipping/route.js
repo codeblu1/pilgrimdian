@@ -22,6 +22,7 @@ export async function POST(request) {
         cost: fixedCost
       }
     });
+    
     return NextResponse.json(cost);
   } catch (error) {
     return NextResponse.json({ error: 'Failed to save shipping cost' }, { status: 500 });

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '../../../lib/db';
+import { sendPaymentConfirmation, sendOrderConfirmation } from '../../../lib/nodemailer';
 
 export async function POST(request) {
   try {
@@ -41,9 +42,44 @@ export async function POST(request) {
           where: { id: orderId },
           data: { status: 'PAID' }
         });
+        
+        const order = await prisma.order.findUnique({
+          where: { id: orderId },
+          include: {
+            items: {
+              select: {
+                product: true,
+                size: true,
+                quantity: true,
+                price: true,
+                color: true,
+                id: true
+              }
+            }
+          }
+        });
+
+        await sendPaymentConfirmation({
+          customerEmail: order.customerEmail,
+          customerName: order.customerName,
+          totalPrice: payment.amount,
+          paypalOrderId: payment.paypalOrderId
+        });
+
+        
+        await sendOrderConfirmation({
+          customerEmail: order.customerEmail,
+          customerName: order.customerName,
+          totalPrice: order.totalPrice,
+          items: order.items
+        })
       }
 
+
       return payment;
+    }, {
+      timeout: 20000,
+      maxWait: 10000
     });
 
     return NextResponse.json(result);

@@ -56,70 +56,61 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const body = await request.json()
-    const { customerName, customerEmail, customerPhone, address, totalPrice, items } = body
+    const data = await request.json();
 
-    // Verify all products exist with clean IDs
-    const productIds = items.map(item => item.productId);
-    console.log('Checking products with IDs:', productIds);
-
+    // Validate all products exist first
+    const productIds = data.items.map(item => item.productId);
     const products = await prisma.product.findMany({
       where: {
-        id: {
-          in: productIds
-        }
+        id: { in: productIds },
+        isActive: true
       }
     });
 
-    if (products.length !== productIds.length) {
-      const foundIds = products.map(p => p.id);
-      const missingIds = productIds.filter(id => !foundIds.includes(id));
-      return NextResponse.json(
-        { 
-          error: 'One or more products not found',
-          missingProducts: missingIds
-        },
-        { status: 400 }
-      );
+    // Check if all products were found
+    const foundProductIds = products.map(p => p.id);
+    const missingProducts = productIds.filter(id => !foundProductIds.includes(id));
+
+    if (missingProducts.length > 0) {
+      return NextResponse.json({
+        error: 'One or more products not found',
+        missingProducts
+      }, { status: 400 });
     }
 
-    // Create order with size and color from cart items
-    const order = await prisma.order.create({
-      data: {
-        customerName,
-        customerEmail,
-        customerPhone,
-        address,
-        totalPrice: parseFloat(totalPrice),
-        status: 'PENDING',
-        items: {
-          create: items.map(item => ({
-            quantity: parseInt(item.quantity),
-            price: parseFloat(item.price),
-            size: item.size,
-            color: item.color,
-            product: {
-              connect: {
-                id: item.productId
-              }
-            }
-          }))
-        }
-      },
-      include: {
-        items: {
-          include: {
-            product: true
+    // Create order with transaction
+    const order = await prisma.$transaction(async (tx) => {
+      // Create the order
+      const newOrder = await tx.order.create({
+        data: {
+          customerName: data.customerName,
+          customerEmail: data.customerEmail,
+          customerPhone: data.customerPhone,
+          address: data.address,
+          totalPrice: data.totalPrice,
+          items: {
+            create: data.items.map(item => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              price: item.price,
+              size: item.size,
+              color: item.color
+            }))
           }
+        },
+        include: {
+          items: true
         }
-      }
+      });
+
+      return newOrder;
     });
 
     return NextResponse.json(order);
   } catch (error) {
     console.error('Error creating order:', error);
     return NextResponse.json(
-      { error: 'Failed to create order', details: error.message },
+      { error: 'Failed to create order' },
       { status: 500 }
     );
   }

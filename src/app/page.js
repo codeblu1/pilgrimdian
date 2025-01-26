@@ -110,7 +110,7 @@ export default function Home() {
       productId: product.id,
       name: product.name,
       price: product.price,
-      image: product.image, // Changed from product.images[0] to product.image
+      image: product.images?.[0]?.imageData, // Changed from product.images[0] to product.image
       size: selectedSize,
       color: selectedColor,
       quantity: 1
@@ -150,21 +150,32 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50">  {/* Remove flex flex-col */}
       <nav className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            {/* Left side: Logo and mobile menu */}
-            <div className="flex items-center gap-4">
-              <h1 className="font-semibold text-xl text-gray-800">Fashion Store</h1>
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="md:hidden p-2 rounded-lg hover:bg-gray-100"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
-                </svg>
-              </button>
+            {/* Update Logo section */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Image
+                    src="/logo.png"
+                    alt="Pilgrimdian Logo"
+                    width={40}
+                    height={40}
+                    className="object-contain"
+                  />
+                  <h1 className="hidden md:block font-semibold text-xl text-gray-800">Pilgrimdian</h1>
+                </div>
+                <button
+                  onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                  className="md:hidden p-2 rounded-lg hover:bg-gray-100"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             {/* Center: Search */}
@@ -237,11 +248,12 @@ export default function Home() {
                 </button>
               </div>
 
+              {/* Cart Sidebar Item */}
               <div className="flex-1 overflow-y-auto">
                 {cart.map(item => (
                   <div key={item.id} className="flex gap-4 mb-4 border-b pb-4">
                     <div className="relative w-20 h-20">
-                      {item.image && (  // Add condition to check if image exists
+                      {item.image && (
                         <Image
                           src={item.image}
                           alt={item.name}
@@ -279,8 +291,12 @@ export default function Home() {
                   <span className="font-semibold">${cartTotal.toFixed(2)}</span>
                 </div>
                 <button
-                  className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700"
+                  className={`w-full py-2 px-4 rounded-lg transition-colors duration-300 
+                    ${cart.length > 0 
+                      ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
+                      : 'bg-gray-300 cursor-not-allowed text-gray-500'}`}
                   onClick={handleCheckout}
+                  disabled={cart.length === 0}
                 >
                   Proceed to Checkout
                 </button>
@@ -326,10 +342,13 @@ export default function Home() {
                     key={product.id}
                     className="bg-white border rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300"
                   >
-                    <div className="relative aspect-[3/4] w-full">
-                      {product.image ? (
+                    <div 
+                      className="relative aspect-[3/4] w-full cursor-pointer"
+                      onClick={() => router.push(`/product/${product.id}`)}
+                    >
+                      {product.images && product.images.length > 0 ? (
                         <Image
-                          src={product.image}
+                          src={product.images[0].imageData} // Use first image as main
                           alt={product.name}
                           fill
                           className="object-cover"
@@ -342,7 +361,12 @@ export default function Home() {
                       )}
                     </div>
                     <div className="p-2 sm:p-4">
-                      <h3 className="font-semibold text-sm sm:text-lg">{product.name}</h3>
+                      <h3 
+                        className="font-semibold text-sm sm:text-lg cursor-pointer hover:text-indigo-600"
+                        onClick={() => router.push(`/product/${product.id}`)}
+                      >
+                        {product.name}
+                      </h3>
                       <p className="text-gray-600 mb-2 text-sm sm:text-base">${product.price}</p>
                       <div className="flex flex-wrap gap-1 sm:gap-2 mb-2 sm:mb-3">
                         {product.sizes.map(size => (

@@ -18,8 +18,14 @@ export default function CategoriesAdmin() {
     try {
       const response = await fetch(`/api/categories?page=${currentPage}&limit=${itemsPerPage}`)
       const data = await response.json()
-      setCategories(data.categories || [])
-      setTotalPages(Math.ceil(data.total / itemsPerPage))
+      if (data.categories) {
+        setCategories(data.categories)
+        setTotalPages(Math.ceil(data.total / itemsPerPage))
+      } else {
+        // Handle case where data is direct array (for dropdowns)
+        setCategories(Array.isArray(data) ? data : [])
+        setTotalPages(1)
+      }
     } catch (error) {
       console.error('Failed to fetch categories:', error)
       alert('Failed to fetch categories')
@@ -190,7 +196,7 @@ export default function CategoriesAdmin() {
                       )}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
-                      {category.products?.length || 0} products
+                      {category.productsCount || 0} products
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex gap-2">

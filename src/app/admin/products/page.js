@@ -40,6 +40,10 @@ const compressImage = (file, maxWidth = 800, maxHeight = 800, quality = 0.7) => 
   });
 };
 
+// Add file type validation
+const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
+const MAX_FILE_SIZE = 5242880; // 5MB
+
 export default function ProductsPage() {
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
@@ -55,9 +59,10 @@ export default function ProductsPage() {
     colors: [],
     categoryId: ''
   })
-  const [imageFile, setImageFile] = useState(null) // Change to single file
-  const [imageBase64, setImageBase64] = useState('') // Change to single string
-  const [imagePreview, setImagePreview] = useState('') // Change to single string
+  const [imageFiles, setImageFiles] = useState([])
+  const [imageBase64Array, setImageBase64Array] = useState([]) // Change to array
+  const [imagePreviews, setImagePreviews] = useState([]) // Change to array
+  const [uploadError, setUploadError] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
   const [itemsPerPage] = useState(10)
@@ -81,7 +86,7 @@ export default function ProductsPage() {
       ...product,
       image: product.image || '' // Change from images array to single image
     })
-    setImagePreview(product.image || '') // Set single image preview
+    setImagePreviews(product.image ? [product.image] : []) // Set single image preview
     setIsModalOpen(true)
   }
 
@@ -105,7 +110,9 @@ export default function ProductsPage() {
     try {
       const productData = {
         ...formData,
-        image: imageBase64 ? imageBase64.replace(/^data:image\/(png|jpg|jpeg);base64,/, '') : null
+        images: imageBase64Array.map(base64 => 
+          base64.replace(/^data:image\/(png|jpg|jpeg);base64,/, '')
+        )
       }
 
       const url = editingId ? `/api/products/${editingId}` : '/api/products'
@@ -124,9 +131,9 @@ export default function ProductsPage() {
       if (response.ok) {
         await refreshProducts() // Use the new refresh function
         setIsModalOpen(false)
-        setImageFile(null)
-        setImageBase64('')
-        setImagePreview('')
+        setImageFiles([])
+        setImageBase64Array([])
+        setImagePreviews([])
         alert(`Product ${editingId ? 'updated' : 'added'} successfully`)
       } else {
         throw new Error(data.error || 'Failed to save product');
@@ -155,22 +162,48 @@ export default function ProductsPage() {
     });
   };
 
-  // Replace handleImageChange with single image version
+  // Update image handling functions
+  const validateFile = (file) => {
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      throw new Error('File type not supported. Please upload PNG, JPG, or JPEG images only.');
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error('File too large. Maximum size is 5MB.');
+    }
+  };
+
   const handleImageChange = async (e) => {
-    const file = e.target.files[0]; // Get only first file
-    if (!file) return;
-    
-    setImageFile(file);
+    const files = Array.from(e.target.files);
+    setUploadError('');
 
     try {
-      // Compress and convert image
-      const compressedImage = await compressImage(file);
-      setImageBase64(compressedImage);
-      setImagePreview(compressedImage);
+      // Validate all files
+      files.forEach(validateFile);
+
+      setImageFiles(files);
+
+      // Compress and convert all images
+      const compressPromises = files.map(file => compressImage(file));
+      const compressedImages = await Promise.all(compressPromises);
+      setImageBase64Array(compressedImages);
+
+      // Create preview URLs
+      setImagePreviews(compressedImages);
+
     } catch (error) {
-      console.error('Error processing image:', error);
-      alert('Error processing image');
+      setUploadError(error.message);
+      // Clear files on error
+      setImageFiles([]);
+      setImageBase64Array([]);
+      setImagePreviews([]);
     }
+  };
+
+  // Add remove single image function
+  const removeImage = (index) => {
+    setImageFiles(prev => prev.filter((_, i) => i !== index));
+    setImageBase64Array(prev => prev.filter((_, i) => i !== index));
+    setImagePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   useEffect(() => {
@@ -210,11 +243,15 @@ export default function ProductsPage() {
   // Clean up preview URLs when modal closes
   useEffect(() => {
     return () => {
-      if (imagePreview?.startsWith('blob:')) {
-        URL.revokeObjectURL(imagePreview);
+      if (imagePreviews?.some(preview => preview.startsWith('blob:'))) {
+        imagePreviews.forEach(preview => {
+          if (preview.startsWith('blob:')) {
+            URL.revokeObjectURL(preview);
+          }
+        });
       }
     }
-  }, [imagePreview])
+  }, [imagePreviews])
 
   const handlePageChange = (newPage) => {
     setCurrentPage(newPage)
@@ -297,12 +334,16 @@ export default function ProductsPage() {
             {products.map((product) => (
               <tr key={product.id}>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  {product.image && (
+                  {product.images && product.images.length > 0 ? (
                     <img
-                      src={product.image}
+                      src={product.images[0].imageData}
                       alt={product.name}
                       className="h-16 w-16 object-cover rounded"
                     />
+                  ) : (
+                    <div className="h-16 w-16 bg-gray-200 rounded flex items-center justify-center">
+                      <span className="text-gray-400 text-xs">No image</span>
+                    </div>
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">{product.name}</td>
@@ -431,31 +472,35 @@ export default function ProductsPage() {
               </div>
 
               <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2">Image</label>
+                <label className="block text-gray-700 text-sm font-bold mb-2">Images</label>
                 <input
                   type="file"
-                  accept="image/*"
+                  multiple
+                  accept=".png,.jpg,.jpeg"
                   onChange={handleImageChange}
                   className="w-full px-3 py-2 border rounded"
                 />
-                {imagePreview && (
-                  <div className="mt-2 relative w-32 h-32">
-                    <img
-                      src={imagePreview}
-                      alt="Product preview"
-                      className="w-full h-full object-cover rounded"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setImageFile(null);
-                        setImageBase64('');
-                        setImagePreview('');
-                      }}
-                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
-                    >
-                      ×
-                    </button>
+                {uploadError && (
+                  <p className="text-red-500 text-sm mt-1">{uploadError}</p>
+                )}
+                {imagePreviews.length > 0 && (
+                  <div className="mt-2 grid grid-cols-4 gap-2">
+                    {imagePreviews.map((preview, index) => (
+                      <div key={index} className="relative">
+                        <img
+                          src={preview}
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-24 object-cover rounded"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

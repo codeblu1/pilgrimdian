@@ -22,6 +22,7 @@ export default function CheckoutPage() {
   });
   const [shippingCost, setShippingCost] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [formErrors, setFormErrors] = useState({});
 
   useEffect(() => {
     const savedCart = localStorage.getItem('cart');
@@ -56,6 +57,34 @@ export default function CheckoutPage() {
     }));
   };
 
+  const validateForm = () => {
+    const errors = {};
+    const requiredFields = [
+      'fullName',
+      'email',
+      'phone',
+      'address',
+      'city',
+      'province',
+      'country',
+      'postalCode'
+    ];
+
+    requiredFields.forEach(field => {
+      if (!shippingData[field]?.trim()) {
+        errors[field] = `${field.charAt(0).toUpperCase() + field.slice(1)} is required`;
+      }
+    });
+
+    // Email validation
+    if (shippingData.email && !/\S+@\S+\.\S+/.test(shippingData.email)) {
+      errors.email = 'Please enter a valid email address';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     // Here you would typically send the order to your backend
@@ -67,16 +96,22 @@ export default function CheckoutPage() {
 
   const createOrder = async (data, actions) => {
     try {
-      if (!shippingData.fullName || !shippingData.email || !cart.length) {
-        alert('Please fill in all required fields');
+      if (!validateForm()) {
+        alert('Please fill in all required fields correctly');
         return null;
       }
 
-      // Extract base product ID (remove size and color suffix)
+      if (!cart.length) {
+        alert('Your cart is empty');
+        return null;
+      }
+
+      // Fix the cart items structure
       const cartItemsWithCleanIds = cart.map(item => {
-        const [baseId] = item.id.split('-'); // Split ID at first hyphen
+        // Extract the base product ID before the first hyphen
+        const productId = item.productId || item.id.split('-')[0];
         return {
-          productId: baseId,
+          productId,
           quantity: item.quantity,
           price: item.price,
           size: item.size,
@@ -101,16 +136,11 @@ export default function CheckoutPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create order');
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create order');
       }
 
       const orderData = await response.json();
-      console.log('Order created:', orderData);
-
-      if (!orderData.id) {
-        throw new Error('Invalid order response');
-      }
-
       setOrder(orderData);
 
       // Create PayPal order
@@ -123,7 +153,7 @@ export default function CheckoutPage() {
       });
     } catch (error) {
       console.error('Error creating order:', error);
-      alert('Failed to create order. Please try again.');
+      alert(error.message);
       return null;
     }
   };
@@ -199,6 +229,27 @@ export default function CheckoutPage() {
     </div>
   );
 
+  // Update input fields to show errors
+  const renderInput = (name, label, type = 'text', required = true) => (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        {label}{required && '*'}
+      </label>
+      <input
+        type={type}
+        name={name}
+        required={required}
+        value={shippingData[name]}
+        onChange={handleInputChange}
+        className={`w-full rounded-lg border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm
+          ${formErrors[name] ? 'border-red-500' : ''}`}
+      />
+      {formErrors[name] && (
+        <p className="mt-1 text-sm text-red-600">{formErrors[name]}</p>
+      )}
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -223,61 +274,10 @@ export default function CheckoutPage() {
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium text-gray-900">Contact Information</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Full Name*
-                      </label>
-                      <input
-                        type="text"
-                        name="fullName"
-                        required
-                        value={shippingData.fullName}
-                        onChange={handleInputChange}
-                        className="w-full rounded-lg border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
-                        placeholder="John Doe"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Email Address*
-                      </label>
-                      <input
-                        type="email"
-                        name="email"
-                        required
-                        value={shippingData.email}
-                        onChange={handleInputChange}
-                        className="w-full rounded-lg border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
-                        placeholder="john@example.com"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Phone Number*
-                      </label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        required
-                        value={shippingData.phone}
-                        onChange={handleInputChange}
-                        className="w-full rounded-lg border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
-                        placeholder="+1 (555) 000-0000"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Alternative Phone
-                      </label>
-                      <input
-                        type="tel"
-                        name="alternativePhone"
-                        value={shippingData.alternativePhone}
-                        onChange={handleInputChange}
-                        className="w-full rounded-lg border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
-                        placeholder="+1 (555) 000-0000"
-                      />
-                    </div>
+                    {renderInput('fullName', 'Full Name')}
+                    {renderInput('email', 'Email Address', 'email')}
+                    {renderInput('phone', 'Phone Number', 'tel')}
+                    {renderInput('alternativePhone', 'Alternative Phone', 'tel', false)}
                   </div>
                 </div>
 
@@ -294,9 +294,13 @@ export default function CheckoutPage() {
                       required
                       value={shippingData.address}
                       onChange={handleInputChange}
-                      className="w-full rounded-lg border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+                      className={`w-full rounded-lg border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm
+                        ${formErrors.address ? 'border-red-500' : ''}`}
                       placeholder="123 Main St, Apt 4B"
                     />
+                    {formErrors.address && (
+                      <p className="mt-1 text-sm text-red-600">{formErrors.address}</p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -309,7 +313,8 @@ export default function CheckoutPage() {
                         required
                         value={shippingData.country}
                         onChange={handleInputChange}
-                        className="w-full rounded-lg border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+                        className={`w-full rounded-lg border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm
+                          ${formErrors.country ? 'border-red-500' : ''}`}
                       >
                         <option value="">Select a country</option>
                         <option value="US">United States</option>
@@ -318,6 +323,9 @@ export default function CheckoutPage() {
                         <option value="AU">Australia</option>
                         {/* Add more countries as needed */}
                       </select>
+                      {formErrors.country && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.country}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -329,9 +337,13 @@ export default function CheckoutPage() {
                         required
                         value={shippingData.province}
                         onChange={handleInputChange}
-                        className="w-full rounded-lg border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+                        className={`w-full rounded-lg border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm
+                          ${formErrors.province ? 'border-red-500' : ''}`}
                         placeholder="NY"
                       />
+                      {formErrors.province && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.province}</p>
+                      )}
                     </div>
                   </div>
 
@@ -346,9 +358,13 @@ export default function CheckoutPage() {
                         required
                         value={shippingData.city}
                         onChange={handleInputChange}
-                        className="w-full rounded-lg border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+                        className={`w-full rounded-lg border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm
+                          ${formErrors.city ? 'border-red-500' : ''}`}
                         placeholder="New York"
                       />
+                      {formErrors.city && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.city}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -360,9 +376,13 @@ export default function CheckoutPage() {
                         required
                         value={shippingData.postalCode}
                         onChange={handleInputChange}
-                        className="w-full rounded-lg border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+                        className={`w-full rounded-lg border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm
+                          ${formErrors.postalCode ? 'border-red-500' : ''}`}
                         placeholder="10001"
                       />
+                      {formErrors.postalCode && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.postalCode}</p>
+                      )}
                     </div>
                   </div>
 

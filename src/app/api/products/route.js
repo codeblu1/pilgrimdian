@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server'
-import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
 import prisma from '../../../lib/db'
 
 export async function GET(request) {
@@ -12,7 +10,10 @@ export async function GET(request) {
     const categoryId = searchParams.get('categoryId')
 
     // Build filter conditions
-    const where = categoryId ? { categoryId } : {}
+    const where = {
+      isActive: true,
+      ...(categoryId ? { categoryId } : {})
+    }
 
     // Get total count with filter
     const total = await prisma.product.count({ where })
@@ -23,7 +24,10 @@ export async function GET(request) {
       skip,
       take: limit,
       include: {
-        category: true
+        category: true,
+        images: {
+          orderBy: { isMain: 'desc' } // Main images first
+        }
       },
       orderBy: {
         createdAt: 'desc'
@@ -51,19 +55,41 @@ export async function POST(request) {
   try {
     const data = await request.json()
     
-    // Handle single image
-    const image = data.image ? 
-      `data:image/jpeg;base64,${data.image}` : 
-      null;
+    // Create product with transaction to handle multiple images
+    const product = await prisma.$transaction(async (tx) => {
+      // Create the product first
+      const newProduct = await tx.product.create({
+        data: {
+          name: data.name,
+          description: data.description,
+          price: parseFloat(data.price),
+          stock: parseInt(data.stock),
+          categoryId: data.categoryId,
+          sizes: data.sizes,
+          colors: data.colors,
+          isActive: true, // Add this line
+        },
+      })
 
-    // Create product in database
-    const product = await prisma.product.create({
-      data: {
-        ...data,
-        image, // Single image field
-        price: parseFloat(data.price),
-        stock: parseInt(data.stock),
-      },
+      // Create image records if images exist
+      if (data.images && data.images.length > 0) {
+        await tx.productImage.createMany({
+          data: data.images.map((base64Data, index) => ({
+            productId: newProduct.id,
+            imageData: `data:image/jpeg;base64,${base64Data}`,
+            isMain: index === 0 // First image is main
+          }))
+        })
+      }
+
+      // Return product with images
+      return tx.product.findUnique({
+        where: { id: newProduct.id },
+        include: { 
+          images: true,
+          category: true
+        }
+      })
     })
 
     return NextResponse.json(product)
