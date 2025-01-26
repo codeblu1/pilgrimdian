@@ -51,17 +51,18 @@ export async function POST(request) {
   try {
     const data = await request.json()
     
-    // Create product in database with base64 images directly
+    // Handle single image
+    const image = data.image ? 
+      `data:image/jpeg;base64,${data.image}` : 
+      null;
+
+    // Create product in database
     const product = await prisma.product.create({
       data: {
-        name: data.name,
-        description: data.description,
+        ...data,
+        image, // Single image field
         price: parseFloat(data.price),
         stock: parseInt(data.stock),
-        categoryId: data.categoryId,
-        images: data.images, // Now directly stores base64 strings
-        sizes: data.sizes,
-        colors: data.colors,
       },
     })
 
@@ -69,7 +70,7 @@ export async function POST(request) {
   } catch (error) {
     console.error('Error creating product:', error)
     return NextResponse.json(
-      { error: 'Failed to create product' },
+      { error: error.message || 'Failed to create product' },
       { status: 500 }
     )
   }

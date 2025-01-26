@@ -1,6 +1,45 @@
 'use client'
 import { useState, useEffect } from 'react'
 
+// Add new image compression function
+const compressImage = (file, maxWidth = 800, maxHeight = 800, quality = 0.7) => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        // Calculate new dimensions
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert to base64 with compression
+        const base64 = canvas.toDataURL('image/jpeg', quality);
+        resolve(base64);
+      };
+    };
+  });
+};
+
 export default function ProductsPage() {
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
@@ -11,14 +50,14 @@ export default function ProductsPage() {
     description: '',
     price: '',
     stock: '',
-    images: [],
+    image: '', // Change from images array to single image
     sizes: [],
     colors: [],
     categoryId: ''
   })
-  const [imageFiles, setImageFiles] = useState([])
-  const [imageBase64, setImageBase64] = useState([])
-  const [imagePreview, setImagePreview] = useState([])
+  const [imageFile, setImageFile] = useState(null) // Change to single file
+  const [imageBase64, setImageBase64] = useState('') // Change to single string
+  const [imagePreview, setImagePreview] = useState('') // Change to single string
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
   const [itemsPerPage] = useState(10)
@@ -32,14 +71,17 @@ export default function ProductsPage() {
 
   const handleAdd = () => {
     setEditingId(null)
-    setFormData({ name: '', description: '', price: '', stock: '', images: [], sizes: [], colors: [], categoryId: '' })
+    setFormData({ name: '', description: '', price: '', stock: '', image: '', sizes: [], colors: [], categoryId: '' })
     setIsModalOpen(true)
   }
 
   const handleEdit = (product) => {
     setEditingId(product.id)
-    setFormData(product)
-    setImagePreview(product.images || []) // Initialize with existing images
+    setFormData({
+      ...product,
+      image: product.image || '' // Change from images array to single image
+    })
+    setImagePreview(product.image || '') // Set single image preview
     setIsModalOpen(true)
   }
 
@@ -57,12 +99,13 @@ export default function ProductsPage() {
     }
   }
 
+  // Modify handleSubmit to chunk the request if needed
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
       const productData = {
         ...formData,
-        images: imageBase64 // Send base64 strings instead of files
+        image: imageBase64 ? imageBase64.replace(/^data:image\/(png|jpg|jpeg);base64,/, '') : null
       }
 
       const url = editingId ? `/api/products/${editingId}` : '/api/products'
@@ -81,13 +124,16 @@ export default function ProductsPage() {
       if (response.ok) {
         await refreshProducts() // Use the new refresh function
         setIsModalOpen(false)
-        setImageFiles([])
-        setImageBase64([])
-        setImagePreview([])
+        setImageFile(null)
+        setImageBase64('')
+        setImagePreview('')
         alert(`Product ${editingId ? 'updated' : 'added'} successfully`)
+      } else {
+        throw new Error(data.error || 'Failed to save product');
       }
     } catch (error) {
-      alert('Failed to save product')
+      console.error('Error saving product:', error);
+      alert('Failed to save product: ' + error.message);
     }
   }
 
@@ -109,31 +155,23 @@ export default function ProductsPage() {
     });
   };
 
+  // Replace handleImageChange with single image version
   const handleImageChange = async (e) => {
-    const files = Array.from(e.target.files)
-    setImageFiles(files)
+    const file = e.target.files[0]; // Get only first file
+    if (!file) return;
+    
+    setImageFile(file);
 
-    // Convert files to base64
     try {
-      const base64Promises = files.map(file => convertToBase64(file))
-      const base64Results = await Promise.all(base64Promises)
-      setImageBase64(base64Results)
-
-      // Create preview URLs
-      const newPreviews = files.map(file => URL.createObjectURL(file))
-      setImagePreview(prevPreviews => {
-        prevPreviews.forEach(url => {
-          if (url.startsWith('blob:')) {
-            URL.revokeObjectURL(url)
-          }
-        })
-        return newPreviews
-      })
+      // Compress and convert image
+      const compressedImage = await compressImage(file);
+      setImageBase64(compressedImage);
+      setImagePreview(compressedImage);
     } catch (error) {
-      console.error('Error converting images to base64:', error)
-      alert('Error processing images')
+      console.error('Error processing image:', error);
+      alert('Error processing image');
     }
-  }
+  };
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -172,7 +210,9 @@ export default function ProductsPage() {
   // Clean up preview URLs when modal closes
   useEffect(() => {
     return () => {
-      imagePreview.forEach(url => URL.revokeObjectURL(url))
+      if (imagePreview?.startsWith('blob:')) {
+        URL.revokeObjectURL(imagePreview);
+      }
     }
   }, [imagePreview])
 
@@ -257,9 +297,9 @@ export default function ProductsPage() {
             {products.map((product) => (
               <tr key={product.id}>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  {product.images && product.images[0] && (
+                  {product.image && (
                     <img
-                      src={product.images[0]}
+                      src={product.image}
                       alt={product.name}
                       className="h-16 w-16 object-cover rounded"
                     />
@@ -391,47 +431,31 @@ export default function ProductsPage() {
               </div>
 
               <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2">Images</label>
+                <label className="block text-gray-700 text-sm font-bold mb-2">Image</label>
                 <input
                   type="file"
-                  multiple
                   accept="image/*"
                   onChange={handleImageChange}
                   className="w-full px-3 py-2 border rounded"
                 />
-                {imagePreview.length > 0 && (
-                  <div className="mt-2 grid grid-cols-4 gap-2">
-                    {imagePreview.map((url, index) => (
-                      url && (  // Only render if URL exists
-                        <div key={index} className="relative">
-                          <img
-                            src={url}
-                            alt={`Product ${index + 1}`}
-                            className="w-full h-24 object-cover rounded"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newImageFiles = [...imageFiles]
-                              newImageFiles.splice(index, 1)
-                              setImageFiles(newImageFiles)
-                              
-                              setImagePreview(prev => {
-                                const newPreviews = [...prev]
-                                const removedUrl = newPreviews.splice(index, 1)[0]
-                                if (removedUrl?.startsWith('blob:')) {
-                                  URL.revokeObjectURL(removedUrl)
-                                }
-                                return newPreviews
-                              })
-                            }}
-                            className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      )
-                    ))}
+                {imagePreview && (
+                  <div className="mt-2 relative w-32 h-32">
+                    <img
+                      src={imagePreview}
+                      alt="Product preview"
+                      className="w-full h-full object-cover rounded"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImageFile(null);
+                        setImageBase64('');
+                        setImagePreview('');
+                      }}
+                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"
+                    >
+                      ×
+                    </button>
                   </div>
                 )}
               </div>

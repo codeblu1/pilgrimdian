@@ -327,12 +327,19 @@ export default function Home() {
                     className="bg-white border rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300"
                   >
                     <div className="relative aspect-[3/4] w-full">
-                      <Image
-                        src={product.images[0]}
-                        alt={product.name}
-                        fill
-                        className="object-cover"
-                      />
+                      {product.images && product.images.length > 0 ? (
+                        <Image
+                          src={product.images[0]}
+                          alt={product.name}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        // Fallback image or placeholder
+                        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                          <span className="text-gray-400">No image</span>
+                        </div>
+                      )}
                     </div>
                     <div className="p-2 sm:p-4">
                       <h3 className="font-semibold text-sm sm:text-lg">{product.name}</h3>
