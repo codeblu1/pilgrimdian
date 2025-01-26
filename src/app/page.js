@@ -110,7 +110,7 @@ export default function Home() {
       productId: product.id,
       name: product.name,
       price: product.price,
-      image: product.images[0], // Update this line to use the first image from images array
+      image: product.image, // Changed from product.images[0] to product.image
       size: selectedSize,
       color: selectedColor,
       quantity: 1
@@ -327,9 +327,9 @@ export default function Home() {
                     className="bg-white border rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300"
                   >
                     <div className="relative aspect-[3/4] w-full">
-                      {product.images && product.images.length > 0 ? (
+                      {product.image ? (
                         <Image
-                          src={product.images[0]}
+                          src={product.image}
                           alt={product.name}
                           fill
                           className="object-cover"
