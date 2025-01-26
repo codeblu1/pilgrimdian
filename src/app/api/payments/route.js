@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '../../../lib/db';
-import { sendPaymentConfirmation, sendOrderConfirmation } from '../../../lib/nodemailer';
+import { sendPaymentConfirmation,sendOrderConfirmation } from '../../../lib/nodemailer';
 
 export async function POST(request) {
   try {
@@ -66,20 +66,21 @@ export async function POST(request) {
           paypalOrderId: payment.paypalOrderId
         });
 
-        
         await sendOrderConfirmation({
           customerEmail: order.customerEmail,
           customerName: order.customerName,
           totalPrice: order.totalPrice,
           items: order.items
         })
+        
       }
+
 
 
       return payment;
     }, {
-      timeout: 20000,
-      maxWait: 10000
+      maxWait: 20000,
+      timeout: 30000
     });
 
     return NextResponse.json(result);
