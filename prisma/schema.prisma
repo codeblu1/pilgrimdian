@@ -19,11 +19,11 @@ model Product {
   description String
   price       Float
   stock       Int
-  images      String[]
+  image       String?     // Change from images String[] to single base64 image
   sizes       String[]
   colors      String[]
   categoryId  String
-  isActive    Boolean     @default(true)  // Add this field
+  isActive    Boolean     @default(true)
   category    Category    @relation(fields: [categoryId], references: [id])
   items       OrderItem[] // Changed from orderItems to items
   createdAt   DateTime    @default(now())

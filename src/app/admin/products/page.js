@@ -17,6 +17,7 @@ export default function ProductsPage() {
     categoryId: ''
   })
   const [imageFiles, setImageFiles] = useState([])
+  const [imageBase64, setImageBase64] = useState([])
   const [imagePreview, setImagePreview] = useState([])
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
@@ -59,28 +60,20 @@ export default function ProductsPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      const formDataToSend = new FormData()
-      
-      // Append text fields
-      formDataToSend.append('name', formData.name)
-      formDataToSend.append('description', formData.description)
-      formDataToSend.append('price', formData.price)
-      formDataToSend.append('stock', formData.stock)
-      formDataToSend.append('categoryId', formData.categoryId)
-      formDataToSend.append('sizes', JSON.stringify(formData.sizes))
-      formDataToSend.append('colors', JSON.stringify(formData.colors))
-
-      // Append image files
-      imageFiles.forEach(file => {
-        formDataToSend.append('images', file)
-      })
+      const productData = {
+        ...formData,
+        images: imageBase64 // Send base64 strings instead of files
+      }
 
       const url = editingId ? `/api/products/${editingId}` : '/api/products'
       const method = editingId ? 'PUT' : 'POST'
 
       const response = await fetch(url, {
         method,
-        body: formDataToSend, // FormData automatically sets the correct content-type
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(productData),
       })
 
       const data = await response.json()
@@ -89,6 +82,7 @@ export default function ProductsPage() {
         await refreshProducts() // Use the new refresh function
         setIsModalOpen(false)
         setImageFiles([])
+        setImageBase64([])
         setImagePreview([])
         alert(`Product ${editingId ? 'updated' : 'added'} successfully`)
       }
@@ -105,21 +99,40 @@ export default function ProductsPage() {
     })
   }
 
-  const handleImageChange = (e) => {
+  // Add this new function to convert file to base64
+  const convertToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  const handleImageChange = async (e) => {
     const files = Array.from(e.target.files)
     setImageFiles(files)
 
-    // Create preview URLs for new files
-    const newPreviews = files.map(file => URL.createObjectURL(file))
-    setImagePreview(prevPreviews => {
-      // Revoke old preview URLs before updating
-      prevPreviews.forEach(url => {
-        if (url.startsWith('blob:')) {
-          URL.revokeObjectURL(url)
-        }
+    // Convert files to base64
+    try {
+      const base64Promises = files.map(file => convertToBase64(file))
+      const base64Results = await Promise.all(base64Promises)
+      setImageBase64(base64Results)
+
+      // Create preview URLs
+      const newPreviews = files.map(file => URL.createObjectURL(file))
+      setImagePreview(prevPreviews => {
+        prevPreviews.forEach(url => {
+          if (url.startsWith('blob:')) {
+            URL.revokeObjectURL(url)
+          }
+        })
+        return newPreviews
       })
-      return newPreviews
-    })
+    } catch (error) {
+      console.error('Error converting images to base64:', error)
+      alert('Error processing images')
+    }
   }
 
   useEffect(() => {

@@ -49,45 +49,19 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const formData = await request.formData()
-    const images = formData.getAll('images')
+    const data = await request.json()
     
-    const uploadedImages = []
-    
-    // Ensure uploads directory exists
-    const uploadDir = join(process.cwd(), 'public/uploads')
-    try {
-      await mkdir(uploadDir, { recursive: true })
-    } catch (err) {
-      if (err.code !== 'EEXIST') {
-        throw err
-      }
-    }
-    
-    // Handle image uploads
-    for (const image of images) {
-      const bytes = await image.arrayBuffer()
-      const buffer = Buffer.from(bytes)
-      
-      // Create unique filename
-      const filename = `${Date.now()}-${image.name}`
-      const path = join(uploadDir, filename)
-      
-      await writeFile(path, buffer)
-      uploadedImages.push(`/uploads/${filename}`)
-    }
-
-    // Create product in database
+    // Create product in database with base64 images directly
     const product = await prisma.product.create({
       data: {
-        name: formData.get('name'),
-        description: formData.get('description'),
-        price: parseFloat(formData.get('price')),
-        stock: parseInt(formData.get('stock')),
-        categoryId: formData.get('categoryId'),
-        images: uploadedImages,
-        sizes: JSON.parse(formData.get('sizes')),
-        colors: JSON.parse(formData.get('colors')),
+        name: data.name,
+        description: data.description,
+        price: parseFloat(data.price),
+        stock: parseInt(data.stock),
+        categoryId: data.categoryId,
+        images: data.images, // Now directly stores base64 strings
+        sizes: data.sizes,
+        colors: data.colors,
       },
     })
 
