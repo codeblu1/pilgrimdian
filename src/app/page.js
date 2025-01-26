@@ -9,50 +9,64 @@ export default function Home() {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('All Clothing');
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [selectedSizes, setSelectedSizes] = useState({});
   const [selectedColors, setSelectedColors] = useState({});
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [categories, setCategories] = useState([]);
 
-  const categories = [
-    'All Clothing',
-    'T-Shirts',
-    'Pants',
-    'Dresses',
-    'Jackets',
-    'Accessories'
-  ];
+  // Fetch categories from API
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch('/api/categories');
+        const data = await response.json();
+        setCategories(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Failed to fetch categories:', error);
+        setCategories([]);
+      }
+    };
+    fetchCategories();
+  }, []);
 
-  const products = [
-    {
-      id: 1,
-      name: 'Classic White T-Shirt',
-      price: 29.99,
-      image: '/clothing/tshirt1.jpg',
-      category: 'T-Shirts',
-      sizes: ['S', 'M', 'L', 'XL'],
-      colors: ['White', 'Black', 'Gray']
-    },
-    {
-      id: 2,
-      name: 'Slim Fit Jeans',
-      price: 59.99,
-      image: '/clothing/jeans1.jpg',
-      category: 'Pants',
-      sizes: ['28', '30', '32', '34'],
-      colors: ['Blue', 'Black']
-    },
-    {
-      id: 3,
-      name: 'Summer Floral Dress',
-      price: 49.99,
-      image: '/clothing/dress1.jpg',
-      category: 'Dresses',
-      sizes: ['XS', 'S', 'M', 'L'],
-      colors: ['Floral Print']
-    }
-  ];
+  // Add a safety check before mapping
+  if (!Array.isArray(categories)) {
+    return null; // or some loading state
+  }
+
+  // Fetch products from API
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const url = selectedCategory ? 
+          `/api/products?categoryId=${selectedCategory}` : 
+          '/api/products';
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error('Failed to fetch products');
+        }
+        const data = await response.json();
+        setProducts(data.products || []); // Extract products array from response
+        setLoading(false);
+      } catch (err) {
+        setError(err.message);
+        setProducts([]); // Set empty array on error
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, [selectedCategory]);
+
+  // Add safety check
+  if (!Array.isArray(products)) {
+    return <div>Loading...</div>;
+  }
 
   // Load cart from localStorage on mount
   useEffect(() => {
@@ -96,7 +110,7 @@ export default function Home() {
       productId: product.id,
       name: product.name,
       price: product.price,
-      image: product.image,
+      image: product.images[0], // Update this line to use the first image from images array
       size: selectedSize,
       color: selectedColor,
       quantity: 1
@@ -187,17 +201,17 @@ export default function Home() {
               <div className="flex flex-wrap gap-2">
                 {categories.map(category => (
                   <button
-                    key={category}
+                    key={category.id}
                     onClick={() => {
-                      setSelectedCategory(category);
+                      setSelectedCategory(category.id);
                       setIsMobileMenuOpen(false);
                     }}
                     className={`px-3 py-1 rounded-full text-sm
-                      ${selectedCategory === category 
+                      ${selectedCategory === category.id 
                         ? 'bg-indigo-600 text-white' 
                         : 'bg-gray-100 text-gray-800'}`}
                   >
-                    {category}
+                    {category.name}
                   </button>
                 ))}
               </div>
@@ -227,12 +241,14 @@ export default function Home() {
                 {cart.map(item => (
                   <div key={item.id} className="flex gap-4 mb-4 border-b pb-4">
                     <div className="relative w-20 h-20">
-                      <Image
-                        src={item.image}
-                        alt={item.name}
-                        fill
-                        className="object-cover rounded"
-                      />
+                      {item.image && (  // Add condition to check if image exists
+                        <Image
+                          src={item.image}
+                          alt={item.name}
+                          fill
+                          className="object-cover rounded"
+                        />
+                      )}
                     </div>
                     <div className="flex-1">
                       <h3 className="font-medium">{item.name}</h3>
@@ -283,12 +299,12 @@ export default function Home() {
               <ul className="space-y-2">
                 {categories.map(category => (
                   <li
-                    key={category}
-                    onClick={() => setSelectedCategory(category)}
+                    key={category.id}
+                    onClick={() => setSelectedCategory(category.id)}
                     className={`cursor-pointer hover:text-indigo-600 px-2 py-1 rounded
-                      ${category === selectedCategory ? 'bg-indigo-50 text-indigo-600' : ''}`}
+                      ${category.id === selectedCategory ? 'bg-indigo-50 text-indigo-600' : ''}`}
                   >
-                    {category}
+                    {category.name}
                   </li>
                 ))}
               </ul>
@@ -297,59 +313,67 @@ export default function Home() {
 
           {/* Product Grid */}
           <div className="md:w-3/4 w-full">
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-              {products.map(product => (
-                <div
-                  key={product.id}
-                  className="bg-white border rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300"
-                >
-                  <div className="relative aspect-[3/4] w-full">
-                    <Image
-                      src={product.image}
-                      alt={product.name}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                  <div className="p-2 sm:p-4">
-                    <h3 className="font-semibold text-sm sm:text-lg">{product.name}</h3>
-                    <p className="text-gray-600 mb-2 text-sm sm:text-base">${product.price}</p>
-                    <div className="flex flex-wrap gap-1 sm:gap-2 mb-2 sm:mb-3">
-                      {product.sizes.map(size => (
-                        <button
-                          key={size}
-                          onClick={() => handleSizeSelect(product.id, size)}
-                          className={`px-1.5 py-0.5 sm:px-2 sm:py-1 border rounded-md text-xs sm:text-sm
-                            ${selectedSizes[product.id] === size ? 'bg-indigo-600 text-white' : 'hover:bg-gray-50'}`}
-                        >
-                          {size}
-                        </button>
-                      ))}
+            {loading ? (
+              <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+              </div>
+            ) : error ? (
+              <div className="text-red-500 text-center">{error}</div>
+            ) : (
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+                {products.map(product => (
+                  <div
+                    key={product.id}
+                    className="bg-white border rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300"
+                  >
+                    <div className="relative aspect-[3/4] w-full">
+                      <Image
+                        src={product.images[0]}
+                        alt={product.name}
+                        fill
+                        className="object-cover"
+                      />
                     </div>
-                    <div className="flex gap-1 sm:gap-2 mb-2 sm:mb-3">
-                      {product.colors.map(color => (
-                        <div
-                          key={color}
-                          onClick={() => handleColorSelect(product.id, color)}
-                          className={`w-4 h-4 sm:w-6 sm:h-6 rounded-full border cursor-pointer
-                            ${selectedColors[product.id] === color ? 'ring-2 ring-indigo-600 ring-offset-2' : ''}`}
-                          style={{
-                            backgroundColor: color.toLowerCase(),
-                            border: color.toLowerCase() === 'white' ? '1px solid #e5e7eb' : 'none'
-                          }}
-                        />
-                      ))}
+                    <div className="p-2 sm:p-4">
+                      <h3 className="font-semibold text-sm sm:text-lg">{product.name}</h3>
+                      <p className="text-gray-600 mb-2 text-sm sm:text-base">${product.price}</p>
+                      <div className="flex flex-wrap gap-1 sm:gap-2 mb-2 sm:mb-3">
+                        {product.sizes.map(size => (
+                          <button
+                            key={size}
+                            onClick={() => handleSizeSelect(product.id, size)}
+                            className={`px-1.5 py-0.5 sm:px-2 sm:py-1 border rounded-md text-xs sm:text-sm
+                              ${selectedSizes[product.id] === size ? 'bg-indigo-600 text-white' : 'hover:bg-gray-50'}`}
+                          >
+                            {size}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex gap-1 sm:gap-2 mb-2 sm:mb-3">
+                        {product.colors.map(color => (
+                          <div
+                            key={color}
+                            onClick={() => handleColorSelect(product.id, color)}
+                            className={`w-4 h-4 sm:w-6 sm:h-6 rounded-full border cursor-pointer
+                              ${selectedColors[product.id] === color ? 'ring-2 ring-indigo-600 ring-offset-2' : ''}`}
+                            style={{
+                              backgroundColor: color.toLowerCase(),
+                              border: color.toLowerCase() === 'white' ? '1px solid #e5e7eb' : 'none'
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => addToCart(product)}
+                        className="mt-1 sm:mt-2 w-full bg-indigo-600 text-white py-1.5 sm:py-2 px-3 sm:px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-300 text-sm sm:text-base"
+                      >
+                        Add to Cart
+                      </button>
                     </div>
-                    <button
-                      onClick={() => addToCart(product)}
-                      className="mt-1 sm:mt-2 w-full bg-indigo-600 text-white py-1.5 sm:py-2 px-3 sm:px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-300 text-sm sm:text-base"
-                    >
-                      Add to Cart
-                    </button>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </main>

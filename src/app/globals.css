@@ -14,6 +14,53 @@
   }
 }
 
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-medium;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-colors duration-200;
+  }
+
+  .btn-primary {
+    @apply bg-indigo-600 text-white hover:bg-indigo-700;
+  }
+
+  .input {
+    @apply w-full rounded-lg border-gray-300 px-4 py-2 focus:border-indigo-500 focus:ring-indigo-500;
+  }
+
+  .card {
+    @apply bg-white rounded-lg shadow-sm p-4;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 rounded-full hover:bg-gray-400;
+}
+
+/* Loading animation */
+.loading-spin {
+  @apply animate-spin rounded-full border-4 border-gray-200;
+  border-top-color: theme('colors.indigo.600');
+}
+
 body {
   color: var(--foreground);
   background: var(--background);

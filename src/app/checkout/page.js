@@ -4,9 +4,10 @@ import { useRouter } from 'next/navigation';
 import { PayPalButtons } from "@paypal/react-paypal-js";
 import Image from 'next/image';
 
-export default function Checkout() {
+export default function CheckoutPage() {
   const router = useRouter();
   const [cart, setCart] = useState([]);
+  const [order, setOrder] = useState(null); // Add order state
   const [shippingData, setShippingData] = useState({
     fullName: '',
     email: '',
@@ -19,6 +20,8 @@ export default function Checkout() {
     postalCode: '',
     notes: ''
   });
+  const [shippingCost, setShippingCost] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const savedCart = localStorage.getItem('cart');
@@ -27,7 +30,23 @@ export default function Checkout() {
     }
   }, []);
 
+  useEffect(() => {
+    const fetchShippingCost = async () => {
+      try {
+        const response = await fetch('/api/shipping');
+        if (!response.ok) throw new Error('Failed to fetch shipping');
+        const data = await response.json();
+        setShippingCost(data.fixedCost);
+      } catch (error) {
+        console.error('Error fetching shipping cost:', error);
+      }
+    };
+
+    fetchShippingCost();
+  }, []);
+
   const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const total = cartTotal + shippingCost;
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -46,58 +65,132 @@ export default function Checkout() {
     router.push('/');
   };
 
-  const handlePayPalApprove = async (data, actions) => {
+  const createOrder = async (data, actions) => {
     try {
-      const order = await actions.order.capture();
-      console.log('Payment successful:', order);
-      
-      // Here you would typically:
-      // 1. Send order details to your backend
-      // 2. Create order in your database
-      // 3. Clear cart
-      // 4. Redirect to success page
-      
+      if (!shippingData.fullName || !shippingData.email || !cart.length) {
+        alert('Please fill in all required fields');
+        return null;
+      }
+
+      // Extract base product ID (remove size and color suffix)
+      const cartItemsWithCleanIds = cart.map(item => {
+        const [baseId] = item.id.split('-'); // Split ID at first hyphen
+        return {
+          productId: baseId,
+          quantity: item.quantity,
+          price: item.price,
+          size: item.size,
+          color: item.color
+        };
+      });
+
+      // Create order in database
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customerName: shippingData.fullName,
+          customerEmail: shippingData.email,
+          customerPhone: shippingData.phone,
+          address: `${shippingData.address}, ${shippingData.city}, ${shippingData.province}, ${shippingData.country}, ${shippingData.postalCode}`,
+          totalPrice: total,
+          items: cartItemsWithCleanIds
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create order');
+      }
+
+      const orderData = await response.json();
+      console.log('Order created:', orderData);
+
+      if (!orderData.id) {
+        throw new Error('Invalid order response');
+      }
+
+      setOrder(orderData);
+
+      // Create PayPal order
+      return actions.order.create({
+        purchase_units: [{
+          amount: {
+            value: total.toFixed(2)
+          }
+        }]
+      });
+    } catch (error) {
+      console.error('Error creating order:', error);
+      alert('Failed to create order. Please try again.');
+      return null;
+    }
+  };
+
+  const onApprove = async (data, actions) => {
+    try {
+      if (!order?.id) {
+        throw new Error('No order reference found');
+      }
+
+      const details = await actions.order.capture();
+      console.log('Payment captured:', details);
+
+      const paymentResponse = await fetch('/api/payments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: order.id,
+          paypalOrderId: data.orderID,
+          paypalPayerId: details.payer.payer_id,
+          status: 'COMPLETED',
+          amount: parseFloat(details.purchase_units[0].amount.value),
+          currency: 'USD'
+        })
+      });
+
+      if (!paymentResponse.ok) {
+        throw new Error('Failed to process payment');
+      }
+
       localStorage.removeItem('cart');
       router.push('/thank-you');
-    } catch (error) {
-      console.error('Payment failed:', error);
+    } catch (err) {
+      console.error('Payment failed:', err);
       alert('Payment failed. Please try again.');
     }
   };
 
+  const onError = async (err) => {
+    // Record error in payment
+    if (order) {
+      await fetch('/api/payments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: order.id,
+          status: 'FAILED',
+          amount: order.totalPrice,
+          currency: 'USD'
+        })
+      })
+    }
+
+    console.error('PayPal error:', err)
+    alert('There was an error processing your payment. Please try again.')
+  }
+
   const renderPaymentButton = () => (
     <div className="space-y-4">
       <PayPalButtons
-        createOrder={(data, actions) => {
-          return actions.order.create({
-            purchase_units: [
-              {
-                amount: {
-                  value: (cartTotal + 10).toFixed(2),
-                  breakdown: {
-                    item_total: {
-                      value: cartTotal.toFixed(2),
-                      currency_code: "USD"
-                    },
-                    shipping: {
-                      value: "10.00",
-                      currency_code: "USD"
-                    }
-                  }
-                },
-                items: cart.map(item => ({
-                  name: item.name,
-                  quantity: item.quantity,
-                  unit_amount: {
-                    value: item.price.toFixed(2),
-                    currency_code: "USD"
-                  }
-                }))
-              },
-            ],
-          });
-        }}
-        onApprove={handlePayPalApprove}
+        createOrder={createOrder}
+        onApprove={onApprove}
+        onError={onError}
         style={{ layout: "vertical" }}
       />
       <p className="text-sm text-gray-500 text-center">
@@ -332,11 +425,11 @@ export default function Checkout() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Shipping</span>
-                    <span className="text-gray-900">$10.00</span>
+                    <span className="text-gray-900">${shippingCost.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-lg font-medium mb-6">
                     <span>Total</span>
-                    <span>${(cartTotal + 10).toFixed(2)}</span>
+                    <span>${total.toFixed(2)}</span>
                   </div>
                   
                   {renderPaymentButton()}
