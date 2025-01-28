@@ -9,21 +9,10 @@ export async function GET(request) {
     const skip = (page - 1) * limit
 
     // Get total count
-    const total = await prisma.order.count({
-      where: {
-        NOT: {
-          status: "PENDING"
-        }
-      },
-    })
+    const total = await prisma.order.count()
 
     // Get paginated orders
     const orders = await prisma.order.findMany({
-      where: {
-        NOT: {
-          status: "PENDING"
-        }
-      },
       skip,
       take: limit,
       orderBy: {
@@ -92,9 +81,7 @@ export async function POST(request) {
             create: data.items.map(item => ({
               productId: item.productId,
               quantity: item.quantity,
-              price: item.price,
-              size: item.size,
-              color: item.color
+              price: item.price
             }))
           }
         },

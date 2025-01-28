@@ -63,10 +63,9 @@ export async function POST(request) {
           name: data.name,
           description: data.description,
           price: parseFloat(data.price),
+          oldPrice: data.oldPrice ? parseFloat(data.oldPrice) : null, // Add this line
           stock: parseInt(data.stock),
           categoryId: data.categoryId,
-          sizes: data.sizes,
-          colors: data.colors,
           isActive: true, // Add this line
         },
       })
@@ -99,5 +98,26 @@ export async function POST(request) {
       { error: error.message || 'Failed to create product' },
       { status: 500 }
     )
+  }
+}
+
+export async function PUT(req) {
+  try {
+    const body = await req.json();
+    const product = await prisma.product.update({
+      where: { id: body.id },
+      data: {
+        name: body.name,
+        description: body.description,
+        price: parseFloat(body.price),
+        oldPrice: body.oldPrice ? parseFloat(body.oldPrice) : null, // Add this line
+        stock: parseInt(body.stock),
+        categoryId: body.categoryId,
+        // ...existing image handling...
+      }
+    });
+    return NextResponse.json(product);
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -18,7 +18,7 @@ export default function AdminLayout({ children }) {
         {/* Sidebar */}
         <div className="w-64 bg-white h-screen shadow-lg fixed">
           <div className="p-4">
-            <h1 className="text-xl font-bold text-gray-800 mb-8">Admin Dashboard</h1>
+            <h1 className="text-xl font-bold text-gray-800 mb-8"><a href="/admin">Admin Dashboard</a></h1>
             <nav className="space-y-2">
               {menuItems.map(item => (
                 <Link

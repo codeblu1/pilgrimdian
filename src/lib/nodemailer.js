@@ -13,15 +13,15 @@ const transporter = nodemailer.createTransport({
 export async function sendOrderConfirmation(orderData) {
   const { customerEmail, customerName, totalPrice, items } = orderData;
 
-  const itemsList = items.map(item => 
-    `<tr>
+  // Update item list to remove size and color, and image
+  const itemsList = items.map(item => `
+    <tr>
       <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.product.name}</td>
-      <td style="padding: 10px; border-bottom: 1px solid #eee;">Size: ${item.size}, Color: ${item.color}</td>
-      <td style="padding: 10px; border-bottom: 1px solid #eee;">$${item.price}</td>
       <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.quantity}</td>
+      <td style="padding: 10px; border-bottom: 1px solid #eee;">$${item.price.toFixed(2)}</td>
       <td style="padding: 10px; border-bottom: 1px solid #eee;">$${(item.price * item.quantity).toFixed(2)}</td>
-    </tr>`
-  ).join('');
+    </tr>
+  `).join('');
 
   const emailTemplate = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -38,9 +38,8 @@ export async function sendOrderConfirmation(orderData) {
           <thead>
             <tr style="background-color: #f3f4f6;">
               <th style="padding: 10px; text-align: left;">Product</th>
-              <th style="padding: 10px; text-align: left;">Details</th>
-              <th style="padding: 10px; text-align: left;">Price</th>
               <th style="padding: 10px; text-align: left;">Quantity</th>
+              <th style="padding: 10px; text-align: left;">Price</th>
               <th style="padding: 10px; text-align: left;">Total</th>
             </tr>
           </thead>
@@ -49,7 +48,7 @@ export async function sendOrderConfirmation(orderData) {
           </tbody>
           <tfoot>
             <tr>
-              <td colspan="4" style="padding: 10px; text-align: right; font-weight: bold;">Total:</td>
+              <td colspan="3" style="padding: 10px; text-align: right; font-weight: bold;">Total:</td>
               <td style="padding: 10px; font-weight: bold;">$${totalPrice.toFixed(2)}</td>
             </tr>
           </tfoot>
@@ -119,22 +118,30 @@ export async function sendPaymentConfirmation(orderData) {
 }
 
 export async function sendShippingUpdate(orderData) {
-  const { customerEmail, customerName } = orderData;
+  const { customerEmail, customerName, id } = orderData;
 
   const emailTemplate = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h1 style="color: #333; text-align: center; padding: 20px;">Your Order is on the Way!</h1>
       
       <div style="background-color: #ebf8ff; padding: 20px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #4299e1;">
-        <h2 style="color: #2b6cb0;">Shipping Details</h2>
-        <div style="margin: 15px 0; padding: 15px; background: white; border-radius: 5px;">
-          <p style="margin: 5px 0;"><strong>Hello ${customerName}:</strong> your order is on the way.</p>
-        </div>
+        <h2 style="color: #2b6cb0;">Great News!</h2>
+        <p style="margin: 15px 0;">Dear ${customerName},</p>
+        <p>Your order (Order ID: ${id}) has been shipped and is on its way to you!</p>
+      </div>
+
+      <div style="background-color: #f9f9f9; padding: 20px; border-radius: 5px;">
+        <h3 style="color: #333;">What's Next?</h3>
+        <ul style="color: #4a5568; line-height: 1.5;">
+          <li>Your order is now in transit</li>
+          <li>You'll receive updates about your delivery</li>
+          <li>Please ensure someone is available to receive your package</li>
+        </ul>
       </div>
 
       <div style="margin-top: 20px; padding: 20px; border-top: 1px solid #edf2f7;">
         <p style="color: #718096; font-size: 14px;">
-          Need help? Contact our support team at support@pilgrimdian.com
+          Questions about your order? Contact our support team at support@pilgrimdian.com
         </p>
       </div>
     </div>

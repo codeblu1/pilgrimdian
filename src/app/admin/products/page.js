@@ -55,9 +55,8 @@ export default function ProductsPage() {
     price: '',
     stock: '',
     image: '', // Change from images array to single image
-    sizes: [],
-    colors: [],
-    categoryId: ''
+    categoryId: '',
+    oldPrice: '',  // Add this field
   })
   const [imageFiles, setImageFiles] = useState([])
   const [imageBase64Array, setImageBase64Array] = useState([]) // Change to array
@@ -76,17 +75,24 @@ export default function ProductsPage() {
 
   const handleAdd = () => {
     setEditingId(null)
-    setFormData({ name: '', description: '', price: '', stock: '', image: '', sizes: [], colors: [], categoryId: '' })
+    setFormData({ name: '', description: '', price: '', stock: '', image: '', categoryId: '', oldPrice: '' })
+    setImagePreviews([])
     setIsModalOpen(true)
   }
 
   const handleEdit = (product) => {
     setEditingId(product.id)
     setFormData({
-      ...product,
-      image: product.image || '' // Change from images array to single image
+      id: product.id, // Make sure to include the ID
+      name: product.name,
+      description: product.description,
+      price: product.price?.toString() || '',
+      stock: product.stock?.toString() || '',
+      oldPrice: product.oldPrice?.toString() || '',
+      categoryId: product.categoryId || ''
     })
-    setImagePreviews(product.image ? [product.image] : []) // Set single image preview
+    // Set existing images
+    setImagePreviews(product.images?.map(img => img.imageData) || [])
     setIsModalOpen(true)
   }
 
@@ -110,9 +116,15 @@ export default function ProductsPage() {
     try {
       const productData = {
         ...formData,
-        images: imageBase64Array.map(base64 => 
-          base64.replace(/^data:image\/(png|jpg|jpeg);base64,/, '')
-        )
+        price: parseFloat(formData.price),
+        oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : null,
+        stock: parseInt(formData.stock),
+        // Only include new images if they were uploaded
+        ...(imageBase64Array.length > 0 && {
+          images: imageBase64Array.map(base64 => 
+            base64.replace(/^data:image\/(png|jpg|jpeg);base64,/, '')
+          )
+        })
       }
 
       const url = editingId ? `/api/products/${editingId}` : '/api/products'
@@ -142,14 +154,6 @@ export default function ProductsPage() {
       console.error('Error saving product:', error);
       alert('Failed to save product: ' + error.message);
     }
-  }
-
-  const handleArrayInput = (e, field) => {
-    const values = e.target.value.split(',').map(item => item.trim())
-    setFormData({
-      ...formData,
-      [field]: values
-    })
   }
 
   // Add this new function to convert file to base64
@@ -325,6 +329,7 @@ export default function ProductsPage() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Old Price</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -349,6 +354,13 @@ export default function ProductsPage() {
                 <td className="px-6 py-4 whitespace-nowrap">{product.name}</td>
                 <td className="px-6 py-4 whitespace-nowrap truncate max-w-xs">{product.description}</td>
                 <td className="px-6 py-4 whitespace-nowrap">${product.price}</td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {product.oldPrice ? (
+                    <span className="line-through text-gray-500">
+                      ${product.oldPrice}
+                    </span>
+                  ) : "-"}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap">{product.stock}</td>
                 <td className="px-6 py-4 whitespace-nowrap">{product.category?.name}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -445,9 +457,10 @@ export default function ProductsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              {/* Form Grid for Price, Old Price, and Stock */}
+              <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-gray-700 text-sm font-bold mb-2">Price</label>
+                  <label className="block text-gray-700 text-sm font-bold mb-2">Current Price</label>
                   <input
                     type="number"
                     name="price"
@@ -459,12 +472,24 @@ export default function ProductsPage() {
                   />
                 </div>
                 <div>
+                  <label className="block text-gray-700 text-sm font-bold mb-2">Old Price (Optional)</label>
+                  <input
+                    type="number"
+                    name="oldPrice"
+                    value={formData.oldPrice}
+                    onChange={handleInputChange}
+                    step="0.01"
+                    className="w-full px-3 py-2 border rounded"
+                  />
+                </div>
+                <div>
                   <label className="block text-gray-700 text-sm font-bold mb-2">Stock</label>
                   <input
                     type="number"
                     name="stock"
                     value={formData.stock}
                     onChange={handleInputChange}
+                    min="0"
                     className="w-full px-3 py-2 border rounded"
                     required
                   />
@@ -503,27 +528,6 @@ export default function ProductsPage() {
                     ))}
                   </div>
                 )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-700 text-sm font-bold mb-2">Sizes (comma-separated)</label>
-                  <input
-                    type="text"
-                    value={formData.sizes.join(', ')}
-                    onChange={(e) => handleArrayInput(e, 'sizes')}
-                    className="w-full px-3 py-2 border rounded"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700 text-sm font-bold mb-2">Colors (comma-separated)</label>
-                  <input
-                    type="text"
-                    value={formData.colors.join(', ')}
-                    onChange={(e) => handleArrayInput(e, 'colors')}
-                    className="w-full px-3 py-2 border rounded"
-                  />
-                </div>
               </div>
 
               <div className="flex justify-end gap-2">

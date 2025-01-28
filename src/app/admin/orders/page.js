@@ -9,6 +9,7 @@ export default function OrdersPage() {
   const [itemsPerPage] = useState(10)
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [showInvoice, setShowInvoice] = useState(false)
+  const [activeTab, setActiveTab] = useState('ALL') // Add this state
 
   useEffect(() => {
     fetchOrders()
@@ -110,13 +111,42 @@ export default function OrdersPage() {
     setShowInvoice(false)
   }
 
+  // Add filter function
+  const filteredOrders = orders.filter(order => {
+    if (activeTab === 'PAID') return order.status === 'PAID'
+    if (activeTab === 'UNPAID') return order.status === 'PENDING'
+    return true // Show all for 'ALL' tab
+  })
+
   if (loading) {
     return <div className="flex justify-center items-center h-screen">Loading...</div>
   }
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Orders</h1>
+      <h1 className="text-2xl font-bold mb-6">Orders Management</h1>
+
+      {/* Add Navigation Tabs */}
+      <div className="mb-6 border-b border-gray-200">
+        <nav className="flex gap-4">
+          {['ALL', 'PAID', 'UNPAID'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`py-2 px-4 text-sm font-medium -mb-px
+                ${activeTab === tab 
+                  ? 'border-b-2 border-indigo-500 text-indigo-600' 
+                  : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              {tab} ({orders.filter(order => {
+                if (tab === 'PAID') return order.status === 'PAID'
+                if (tab === 'UNPAID') return order.status === 'PENDING'
+                return true
+              }).length})
+            </button>
+          ))}
+        </nav>
+      </div>
 
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white">
@@ -128,10 +158,11 @@ export default function OrdersPage() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {orders.map((order) => (
+            {filteredOrders.map((order) => (
               <tr key={order.id}>
                 <td className="px-6 py-4 whitespace-nowrap">{order.id}</td>
                 <td className="px-6 py-4">
@@ -161,10 +192,44 @@ export default function OrdersPage() {
                     Print Invoice
                   </button>
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex gap-2">
+                    {order.status === 'PAID' && (
+                      <select
+                        onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                        className="border rounded px-2 py-1 text-sm"
+                        defaultValue={order.status}
+                      >
+                        <option value="PAID">PAID</option>
+                        <option value="SHIPPED">SHIPPED</option>
+                      </select>
+                    )}
+                    {order.status === 'SHIPPED' && (
+                      <select
+                        onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                        className="border rounded px-2 py-1 text-sm"
+                        defaultValue={order.status}
+                      >
+                        <option value="SHIPPED">SHIPPED</option>
+                        <option value="DELIVERED">DELIVERED</option>
+                      </select>
+                    )}
+                    {/* Remove delete button */}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
+
+        {/* Add empty state */}
+        {filteredOrders.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-gray-500">
+              No {activeTab.toLowerCase()} orders found
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Invoice Modal */}
@@ -223,7 +288,6 @@ export default function OrdersPage() {
                   <thead>
                     <tr className="bg-gray-50">
                       <th className="py-3 px-4 text-left font-semibold">Product Name</th>
-                      <th className="py-3 px-4 text-center font-semibold">Specifications</th>
                       <th className="py-3 px-4 text-center font-semibold">Quantity</th>
                     </tr>
                   </thead>
@@ -232,28 +296,9 @@ export default function OrdersPage() {
                       <tr key={item.id} className="border-b">
                         <td className="py-4 px-4">
                           <div className="flex items-center space-x-3">
-                            <img 
-                              src={item.product.images?.[0] || '/placeholder.png'} 
-                              alt={item.product.name}
-                              className="w-16 h-16 object-cover rounded"
-                            />
                             <span className="font-medium">{item.product.name}</span>
                           </div>
                         </td>
-                      <td className="py-4 px-4 text-center">
-                        <div className="space-y-1 text-sm">
-                          {item.size && (
-                            <div className="inline-block px-2 py-1 bg-gray-100 rounded mr-2">
-                              Size: {item.size}
-                            </div>
-                          )}
-                          {item.color && (
-                            <div className="inline-block px-2 py-1 bg-gray-100 rounded">
-                              Color: {item.color}
-                            </div>
-                          )}
-                        </div>
-                      </td>
                       <td className="py-4 px-4 text-center">
                         {item.quantity}
                       </td>

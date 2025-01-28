@@ -165,7 +165,6 @@ export default function CheckoutPage() {
       }
 
       const details = await actions.order.capture();
-      console.log('Payment captured:', details);
 
       const paymentResponse = await fetch('/api/payments', {
         method: 'POST',

@@ -12,8 +12,6 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [selectedSizes, setSelectedSizes] = useState({});
-  const [selectedColors, setSelectedColors] = useState({});
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -82,38 +80,25 @@ export default function Home() {
   }, [cart]);
 
   // Cart functions
-  const handleSizeSelect = (productId, size) => {
-    setSelectedSizes(prev => ({
-      ...prev,
-      [productId]: size
-    }));
-  };
-
-  const handleColorSelect = (productId, color) => {
-    setSelectedColors(prev => ({
-      ...prev,
-      [productId]: color
-    }));
-  };
-
   const addToCart = (product) => {
-    const selectedSize = selectedSizes[product.id];
-    const selectedColor = selectedColors[product.id];
+    // Check existing quantity in cart
+    const existingItem = cart.find(item => item.id === product.id);
+    const currentQuantity = existingItem ? existingItem.quantity : 0;
 
-    if (!selectedSize || !selectedColor) {
-      alert('Please select both size and color');
+    // Check if adding one more would exceed stock
+    if (currentQuantity + 1 > product.stock) {
+      alert(`Sorry, only ${product.stock} items available in stock`);
       return;
     }
-    
+
     const cartItem = {
-      id: `${product.id}-${selectedSize}-${selectedColor}`,
+      id: product.id,
       productId: product.id,
       name: product.name,
       price: product.price,
-      image: product.images?.[0]?.imageData, // Changed from product.images[0] to product.image
-      size: selectedSize,
-      color: selectedColor,
-      quantity: 1
+      image: product.images?.[0]?.imageData,
+      quantity: 1,
+      maxStock: product.stock // Store max stock with item
     };
 
     setCart(prevCart => {
@@ -135,6 +120,16 @@ export default function Home() {
 
   const updateQuantity = (itemId, newQuantity) => {
     if (newQuantity < 1) return;
+
+    const item = cart.find(item => item.id === itemId);
+    if (!item) return;
+
+    // Check if new quantity exceeds stock
+    if (newQuantity > item.maxStock) {
+      alert(`Sorry, only ${item.maxStock} items available in stock`);
+      return;
+    }
+
     setCart(prevCart =>
       prevCart.map(item =>
         item.id === itemId ? { ...item, quantity: newQuantity } : item
@@ -264,7 +259,7 @@ export default function Home() {
                     </div>
                     <div className="flex-1">
                       <h3 className="font-medium">{item.name}</h3>
-                      <p className="text-sm text-gray-500">Size: {item.size}, Color: {item.color}</p>
+                      <p className="text-sm text-gray-500">${item.price}</p>
                       <div className="flex items-center gap-2 mt-2">
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
@@ -336,69 +331,88 @@ export default function Home() {
             ) : error ? (
               <div className="text-red-500 text-center">{error}</div>
             ) : (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {products.map(product => (
                   <div
                     key={product.id}
-                    className="bg-white border rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300"
+                    className="bg-white border rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 group"
                   >
+                    {/* Image Container - Remove SOLD OUT overlay */}
                     <div 
-                      className="relative aspect-[3/4] w-full cursor-pointer"
+                      className="relative aspect-[4/3] w-full cursor-pointer overflow-hidden"
                       onClick={() => router.push(`/product/${product.id}`)}
                     >
                       {product.images && product.images.length > 0 ? (
                         <Image
-                          src={product.images[0].imageData} // Use first image as main
+                          src={product.images[0].imageData}
                           alt={product.name}
                           fill
-                          className="object-cover"
+                          className="object-cover group-hover:scale-110 transition-transform duration-300"
                         />
                       ) : (
-                        // Fallback image or placeholder
-                        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                        <div className="w-full h-full bg-gray-100 flex items-center justify-center">
                           <span className="text-gray-400">No image</span>
                         </div>
                       )}
                     </div>
-                    <div className="p-2 sm:p-4">
+
+                    {/* Product Info */}
+                    <div className="p-4">
+                      {/* Category */}
+                      <p className="text-xs text-gray-500 mb-2">
+                        {product.category?.name}
+                      </p>
+
+                      {/* Title */}
                       <h3 
-                        className="font-semibold text-sm sm:text-lg cursor-pointer hover:text-indigo-600"
+                        className="font-semibold text-lg cursor-pointer hover:text-indigo-600 line-clamp-2 min-h-[56px]"
                         onClick={() => router.push(`/product/${product.id}`)}
                       >
                         {product.name}
                       </h3>
-                      <p className="text-gray-600 mb-2 text-sm sm:text-base">${product.price}</p>
-                      <div className="flex flex-wrap gap-1 sm:gap-2 mb-2 sm:mb-3">
-                        {product.sizes.map(size => (
-                          <button
-                            key={size}
-                            onClick={() => handleSizeSelect(product.id, size)}
-                            className={`px-1.5 py-0.5 sm:px-2 sm:py-1 border rounded-md text-xs sm:text-sm
-                              ${selectedSizes[product.id] === size ? 'bg-indigo-600 text-white' : 'hover:bg-gray-50'}`}
-                          >
-                            {size}
-                          </button>
-                        ))}
+
+                      {/* Price Section */}
+                      <div className="mt-2 mb-4">
+                        {product.oldPrice && (
+                          <p className="text-sm text-gray-500 line-through">
+                            ${product.oldPrice.toFixed(2)}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <p className="text-xl font-bold text-gray-900">
+                            ${product.price.toFixed(2)}
+                          </p>
+                          {product.oldPrice && (
+                            <span className="bg-red-100 text-red-600 text-xs px-2 py-1 rounded-full">
+                              {Math.round((1 - product.price / product.oldPrice) * 100)}% OFF
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex gap-1 sm:gap-2 mb-2 sm:mb-3">
-                        {product.colors.map(color => (
-                          <div
-                            key={color}
-                            onClick={() => handleColorSelect(product.id, color)}
-                            className={`w-4 h-4 sm:w-6 sm:h-6 rounded-full border cursor-pointer
-                              ${selectedColors[product.id] === color ? 'ring-2 ring-indigo-600 ring-offset-2' : ''}`}
-                            style={{
-                              backgroundColor: color.toLowerCase(),
-                              border: color.toLowerCase() === 'white' ? '1px solid #e5e7eb' : 'none'
-                            }}
-                          />
-                        ))}
-                      </div>
+
+                      {/* Stock Status */}
+                      <p className="text-sm text-gray-600 mb-3">
+                        {product.stock > 0 ? (
+                          <span className="text-green-600">
+                            ✓ In Stock ({product.stock})
+                          </span>
+                        ) : (
+                          <span className="text-red-600">
+                            Out of Stock
+                          </span>
+                        )}
+                      </p>
+
+                      {/* Add to Cart Button */}
                       <button
                         onClick={() => addToCart(product)}
-                        className="mt-1 sm:mt-2 w-full bg-indigo-600 text-white py-1.5 sm:py-2 px-3 sm:px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-300 text-sm sm:text-base"
+                        disabled={product.stock === 0}
+                        className={`w-full py-2 px-4 rounded-lg transition-colors duration-300 
+                          ${product.stock > 0 
+                            ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
+                            : 'bg-gray-200 cursor-not-allowed text-gray-500'}`}
                       >
-                        Add to Cart
+                        {product.stock > 0 ? 'Add to Cart' : 'Sold Out'}
                       </button>
                     </div>
                   </div>

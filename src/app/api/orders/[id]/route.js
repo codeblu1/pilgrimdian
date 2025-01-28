@@ -1,15 +1,18 @@
 import { NextResponse } from 'next/server'
 import prisma from '../../../../lib/db'
+import {sendShippingUpdate} from '../../../../lib/nodemailer'
 
 export async function PATCH(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const { status } = await request.json();
 
     const updatedOrder = await prisma.order.update({
       where: { id },
       data: { status }
     });
+
+    await sendShippingUpdate(updatedOrder)
 
     return NextResponse.json(updatedOrder);
   } catch (error) {
@@ -60,3 +63,5 @@ export async function GET(request, { params }) {
     );
   }
 }
+
+
