@@ -4,12 +4,9 @@ import prisma from '../../../../lib/db'
 export async function DELETE(request, {params}) {
     try {
       const {id} = await params
-        const product = await prisma.product.update({
+        const product = await prisma.product.delete({
             where: {
                 id: id,
-            },
-            data: {
-                isActive: false
             }
         })
 
@@ -28,8 +25,7 @@ export async function GET(request, { params }) {
       const {id} = await params
         const product = await prisma.product.findUnique({
             where: {
-                id: id,
-                isActive: true
+                id: id
             },
             include: {
                 category: true,

@@ -20,9 +20,9 @@ model Product {
   price       Float
   oldPrice    Float?         // Add this field
   stock       Int
-  categoryId  String
+  categoryId  String?
   isActive    Boolean        @default(true)
-  category    Category       @relation(fields: [categoryId], references: [id])
+  category    Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   items       OrderItem[]
   images      ProductImage[]
   createdAt   DateTime       @default(now())
@@ -32,8 +32,8 @@ model Product {
 model ProductImage {
   id        String   @id @default(cuid())
   imageData String // Store base64 image data
-  productId String
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String?
+  product   Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
   isMain    Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -66,8 +66,8 @@ model OrderItem {
   id        String   @id @default(cuid())
   orderId   String
   order     Order    @relation(fields: [orderId], references: [id])
-  productId String
-  product   Product  @relation(fields: [productId], references: [id])
+  productId String?
+  product   Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
   quantity  Int
   price     Float
   createdAt DateTime @default(now())
