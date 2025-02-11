@@ -17,7 +17,7 @@ export default function OrdersPage() {
 
   const fetchOrders = async () => {
     try {
-      const response = await fetch(`/api/orders?page=${currentPage}&limit=${itemsPerPage}`)
+      const response = await fetch(`/api/orders?page=${currentPage}&limit=${itemsPerPage}`, {cache: 'no-cache',})
       const data = await response.json()
       setOrders(data.orders || [])
       setTotalPages(Math.ceil(data.total / itemsPerPage))
@@ -66,6 +66,7 @@ export default function OrdersPage() {
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
       const response = await fetch(`/api/orders/${orderId}`, {
+        cache: 'no-cache',
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

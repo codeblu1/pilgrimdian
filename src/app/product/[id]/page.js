@@ -15,7 +15,7 @@ function ProductPage() {
     const fetchProduct = async () => {
       try {
         if (!params?.id) return
-        const response = await fetch(`/api/products/${params.id}`)
+        const response = await fetch(`/api/products/${params.id}`, {cache: 'no-cache',})
         if (!response.ok) throw new Error('Product not found')
         const data = await response.json()
         setProduct(data)

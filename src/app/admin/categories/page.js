@@ -16,7 +16,9 @@ export default function CategoriesAdmin() {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch(`/api/categories?page=${currentPage}&limit=${itemsPerPage}`)
+      const response = await fetch(`/api/categories?page=${currentPage}&limit=${itemsPerPage}`, {
+        cache: "no-cache"
+      })
       const data = await response.json()
       if (data.categories) {
         setCategories(data.categories)
@@ -37,6 +39,7 @@ export default function CategoriesAdmin() {
     e.preventDefault()
     try {
       const res = await fetch('/api/categories', {
+        cache: 'no-cache',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newCategory })
@@ -65,6 +68,7 @@ export default function CategoriesAdmin() {
     try {
       const res = await fetch(`/api/categories/${editingCategory.id}`, {
         method: 'PUT',
+        cache: 'no-cache',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: editName })
       })
@@ -91,9 +95,9 @@ export default function CategoriesAdmin() {
     if (!confirm('Are you sure you want to delete this category?')) return
 
     try {
-      await fetch(`/api/categories/${id}`, { method: 'DELETE' })
+      await fetch(`/api/categories/${id}`, { method: 'DELETE', cache: 'no-cache', })
       // Refresh the list after deletion
-      const response = await fetch(`/api/categories?page=${currentPage}&limit=${itemsPerPage}`)
+      const response = await fetch(`/api/categories?page=${currentPage}&limit=${itemsPerPage}`, {cache: 'no-cache'})
       const data = await response.json()
       setCategories(data.categories)
       setTotalPages(Math.ceil(data.total / itemsPerPage))

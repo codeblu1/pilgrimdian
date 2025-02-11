@@ -34,7 +34,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     const fetchShippingCost = async () => {
       try {
-        const response = await fetch('/api/shipping');
+        const response = await fetch('/api/shipping', {cache: 'no-cache',});
         if (!response.ok) throw new Error('Failed to fetch shipping');
         const data = await response.json();
         setShippingCost(data.fixedCost);
@@ -121,6 +121,7 @@ export default function CheckoutPage() {
 
       // Create order in database
       const response = await fetch('/api/orders', {
+        cache: 'no-cache',
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -167,6 +168,7 @@ export default function CheckoutPage() {
       const details = await actions.order.capture();
 
       const paymentResponse = await fetch('/api/payments', {
+        cache: 'no-cache',
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -197,6 +199,7 @@ export default function CheckoutPage() {
     // Record error in payment
     if (order) {
       await fetch('/api/payments', {
+        cache: 'no-cache',
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

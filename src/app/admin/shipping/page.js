@@ -10,7 +10,7 @@ export default function ShippingPage() {
   useEffect(() => {
     const fetchShippingCost = async () => {
       try {
-        const response = await fetch('/api/shipping');
+        const response = await fetch('/api/shipping', {cache: 'no-cache',});
         if (!response.ok) throw new Error('Failed to fetch');
         const data = await response.json();
         setShippingCost(data.fixedCost?.toString() || '');
@@ -30,6 +30,7 @@ export default function ShippingPage() {
     try {
       const response = await fetch('/api/shipping', {
         method: 'POST',
+        cache: 'no-cache',
         headers: {
           'Content-Type': 'application/json',
         },

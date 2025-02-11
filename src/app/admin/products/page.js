@@ -100,7 +100,7 @@ export default function ProductsPage() {
     if (!confirm('Are you sure you want to delete this product?')) return
 
     try {
-      const response = await fetch(`/api/products/${id}`, { method: 'DELETE' })
+      const response = await fetch(`/api/products/${id}`, { method: 'DELETE',cache: 'no-cache', })
       if (response.ok) {
         await refreshProducts() // Use the new refresh function
         alert('Product deleted successfully')
@@ -131,6 +131,7 @@ export default function ProductsPage() {
       const method = editingId ? 'PUT' : 'POST'
 
       const response = await fetch(url, {
+        cache: 'no-cache',
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -213,7 +214,7 @@ export default function ProductsPage() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await fetch(`/api/products?page=${currentPage}&limit=${itemsPerPage}`)
+        const response = await fetch(`/api/products?page=${currentPage}&limit=${itemsPerPage}`, {cache: 'no-cache'})
         const data = await response.json()
         if (data.products) {
           setProducts(data.products)
@@ -234,7 +235,7 @@ export default function ProductsPage() {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('/api/categories')
+        const response = await fetch('/api/categories', {cache: 'no-cache',})
         const data = await response.json()
         setCategories(data)
       } catch (error) {
@@ -294,7 +295,7 @@ export default function ProductsPage() {
 
   const refreshProducts = async () => {
     try {
-      const response = await fetch(`/api/products?page=${currentPage}&limit=${itemsPerPage}`)
+      const response = await fetch(`/api/products?page=${currentPage}&limit=${itemsPerPage}`, {cache: 'no-cache',})
       const data = await response.json()
       if (data.products) {
         setProducts(data.products)

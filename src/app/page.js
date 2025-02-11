@@ -21,7 +21,9 @@ export default function Home() {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('/api/categories');
+        const response = await fetch('/api/categories', {
+          cache: 'no-cache'
+        });
         const data = await response.json();
         setCategories(Array.isArray(data) ? data : []);
       } catch (error) {
@@ -44,7 +46,9 @@ export default function Home() {
         const url = selectedCategory ? 
           `/api/products?categoryId=${selectedCategory}` : 
           '/api/products';
-        const response = await fetch(url);
+        const response = await fetch(url, {
+          cache: 'no-cache'
+        });
         if (!response.ok) {
           throw new Error('Failed to fetch products');
         }
