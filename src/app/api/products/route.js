@@ -55,7 +55,7 @@ export async function POST(request) {
   try {
     const data = await request.json()
     
-    // Create product with transaction to handle multiple images
+    // Create product with transaction with corrected timeout
     const product = await prisma.$transaction(async (tx) => {
       // Create the product first
       const newProduct = await tx.product.create({
@@ -63,10 +63,10 @@ export async function POST(request) {
           name: data.name,
           description: data.description,
           price: parseFloat(data.price),
-          oldPrice: data.oldPrice ? parseFloat(data.oldPrice) : null, // Add this line
+          oldPrice: data.oldPrice ? parseFloat(data.oldPrice) : null,
           stock: parseInt(data.stock),
           categoryId: data.categoryId,
-          isActive: true, // Add this line
+          isActive: true,
         },
       })
 
@@ -76,12 +76,11 @@ export async function POST(request) {
           data: data.images.map((base64Data, index) => ({
             productId: newProduct.id,
             imageData: `data:image/jpeg;base64,${base64Data}`,
-            isMain: index === 0 // First image is main
+            isMain: index === 0
           }))
         })
       }
 
-      // Return product with images
       return tx.product.findUnique({
         where: { id: newProduct.id },
         include: { 
@@ -90,8 +89,8 @@ export async function POST(request) {
         }
       })
     }, {
-      maxWait: 50000,
-      timeout: 60000
+      maxWait: 5000, // Reduced from 50000000
+      timeout: 10000 // Reduced from 60000000 to be under 15000ms limit
     })
 
     return NextResponse.json(product)

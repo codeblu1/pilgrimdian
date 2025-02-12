@@ -95,8 +95,8 @@ export async function POST(request) {
 
       return payment;
     }, {
-      maxWait: 20000,
-      timeout: 30000
+      maxWait: 5000, // Reduced from 50000000
+      timeout: 10000 // Reduced from 60000000 to be under 15000ms limit
     });
 
     return NextResponse.json(result);
@@ -171,8 +171,8 @@ export async function PUT(req) {
 
       return payment;
     }, {
-      maxWait: 50000,
-      timeout: 60000
+      maxWait: 5000, // Reduced from 50000000
+      timeout: 10000 // Reduced from 60000000 to be under 15000ms limit
     });
 
     return NextResponse.json(result);
