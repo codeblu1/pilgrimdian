@@ -89,6 +89,9 @@ export async function POST(request) {
           category: true
         }
       })
+    }, {
+      maxWait: 50000,
+      timeout: 60000
     })
 
     return NextResponse.json(product)

@@ -170,6 +170,9 @@ export async function PUT(req) {
       }
 
       return payment;
+    }, {
+      maxWait: 50000,
+      timeout: 60000
     });
 
     return NextResponse.json(result);

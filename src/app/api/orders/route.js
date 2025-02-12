@@ -91,6 +91,9 @@ export async function POST(request) {
       });
 
       return newOrder;
+    }, {
+      maxWait: 50000,
+      timeout: 60000
     });
 
     return NextResponse.json(order);
